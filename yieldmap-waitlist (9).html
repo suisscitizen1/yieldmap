@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YieldMap — Find Your DeFi Profile</title>
+<meta name="description" content="Answer 5 questions. Discover how you should deploy on Solana. Join the closed beta to get matched with strategies that fit your risk.">
+<meta name="theme-color" content="#070c14">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:    #070c14;
+  --bg2:   #0d1520;
+  --bg3:   #111d2e;
+  --bdr:   rgba(255,255,255,0.07);
+  --green: #95ff47;
+  --cyan:  #35e6ff;
+  --white: #f0f4f8;
+  --t2:    rgba(240,244,248,0.72);
+  --t3:    rgba(240,244,248,0.50);
+  --danger:#ff4d4d;
+  --r:     14px;
+  --font:  'Syne', sans-serif;
+  --mono:  'DM Mono', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--white); font-family: var(--font);
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; overflow-x: hidden; -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 900px 500px at 50% -5%, rgba(149,255,71,.07), transparent 55%),
+    radial-gradient(ellipse 500px 400px at 90% 90%, rgba(53,230,255,.05), transparent 55%),
+    radial-gradient(circle at 12% 22%, rgba(255,255,255,.02), transparent 18%);
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 56px; padding: 0 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(7,12,20,.9); border-bottom: 1px solid var(--bdr);
+  backdrop-filter: blur(14px);
+}
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.brand-wm { font-family: var(--font); font-size: 17px; font-weight: 700; letter-spacing: -.01em; color: var(--white); }
+.nav-pill {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--t3);
+  padding: 3px 10px; border-radius: 20px;
+  border: 1px solid var(--bdr); background: rgba(255,255,255,.03);
+}
+
+/* ── PROGRESS ── */
+.pbar { position: fixed; top: 56px; left: 0; right: 0; height: 2px; background: var(--bg3); z-index: 99; }
+.pbar-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--green), var(--cyan));
+  box-shadow: 0 0 8px rgba(149,255,71,.45);
+  transition: width .4s ease;
+}
+
+/* ── VIEWS ── */
+.view { display: none; }
+.view.on { display: flex; }
+
+/* ── QUIZ ── */
+#vq {
+  flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 80px 20px 60px;
+  position: relative; z-index: 1; width: 100%;
+}
+.qwrap { width: 100%; max-width: 460px; display: flex; flex-direction: column; }
+
+.step-num {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+  color: var(--t3); text-transform: uppercase; text-align: center; margin-bottom: 20px;
+}
+.step-num b { color: var(--green); font-weight: 400; }
+
+.qblock { display: none; flex-direction: column; }
+.qblock.on { display: flex; animation: fadeUp .32s ease both; }
+
+.qtitle {
+  font-size: clamp(20px,4vw,28px); font-weight: 700; letter-spacing: -.02em;
+  line-height: 1.2; text-align: center; margin-bottom: 5px;
+}
+.qtitle em { font-style: normal; color: var(--green); }
+.qsub {
+  font-family: var(--mono); font-size: 10px; color: var(--t3);
+  letter-spacing: .04em; text-align: center; margin-bottom: 22px; line-height: 1.5;
+}
+
+/* options */
+.opts { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; margin-bottom: 18px; }
+.opts.col { flex-direction: column; }
+.opt {
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 16px; border-radius: var(--r);
+  border: 1px solid var(--bdr); background: var(--bg2);
+  cursor: pointer; transition: all .16s; user-select: none;
+  font-family: var(--font); font-size: 13px; font-weight: 500; color: var(--t2);
+}
+.opt:hover { border-color: rgba(255,255,255,.14); color: var(--white); background: var(--bg3); }
+.opt.sel {
+  border-color: rgba(149,255,71,.42); background: rgba(149,255,71,.06);
+  color: var(--white); box-shadow: 0 0 0 1px rgba(149,255,71,.1) inset;
+}
+.oi { font-size: 15px; flex-shrink: 0; line-height: 1; }
+.ob { display: flex; flex-direction: column; gap: 1px; }
+.ol { font-size: 13px; font-weight: 600; color: inherit; }
+.oh { font-family: var(--mono); font-size: 9px; color: var(--t3); }
+
+/* slider */
+.sldr-wrap { width: 100%; padding: 0 2px; margin-bottom: 22px; }
+.sldr-lbl {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 9px; color: var(--t3);
+  letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px;
+}
+.sldr-cur {
+  text-align: center; margin-bottom: 10px;
+  font-family: var(--mono); font-size: 11px; color: var(--green); letter-spacing: .06em;
+  min-height: 16px;
+}
+input[type=range] {
+  width: 100%; -webkit-appearance: none; appearance: none;
+  height: 4px; border-radius: 2px; outline: none; cursor: pointer;
+  background: linear-gradient(90deg, var(--green) var(--p,33%), var(--bg3) var(--p,33%));
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 8px rgba(149,255,71,.5); cursor: pointer;
+  transition: transform .15s;
+}
+input[type=range]:active::-webkit-slider-thumb { transform: scale(1.18); }
+
+/* nav btns */
+.qnav { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+.qback {
+  font-family: var(--font); font-size: 12px; color: var(--t3);
+  background: none; border: none; cursor: pointer; padding: 8px 0; transition: color .15s;
+}
+.qback:hover { color: var(--t2); }
+.qback.hide { visibility: hidden; }
+.qnext {
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  padding: 10px 24px; border-radius: 10px;
+  background: rgba(149,255,71,.1); border: 1px solid rgba(149,255,71,.22);
+  color: var(--green); cursor: pointer; transition: all .18s; letter-spacing: .02em;
+}
+.qnext:hover { background: rgba(149,255,71,.16); box-shadow: 0 0 16px rgba(149,255,71,.14); }
+.qnext:disabled { opacity: .32; cursor: default; }
+
+/* dots */
+.dots { display: flex; gap: 7px; justify-content: center; margin-top: 26px; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: var(--bg3); transition: all .3s; }
+.dot.done { background: var(--t3); }
+.dot.cur  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+/* ── WAITLIST ── */
+#vw {
+  flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 80px 20px 60px;
+  position: relative; z-index: 1; width: 100%;
+}
+.wwrap { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; }
+
+.persona-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 13px; border-radius: 20px;
+  background: rgba(149,255,71,.05); border: 1px solid rgba(149,255,71,.16);
+  font-family: var(--mono); font-size: 9px; letter-spacing: .14em;
+  color: var(--green); text-transform: uppercase; margin-bottom: 20px;
+}
+.pdot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: blink 2s infinite; }
+
+.wl-h {
+  font-size: clamp(24px,5vw,36px); font-weight: 800; letter-spacing: -.03em;
+  line-height: 1.1; text-align: center; margin-bottom: 8px; width: 100%;
+}
+.wl-h em { font-style: normal; color: var(--green); }
+.wl-sub {
+  font-family: var(--mono); font-size: 10px; color: var(--t3); letter-spacing: .03em;
+  text-align: center; line-height: 1.7; margin-bottom: 24px; max-width: 340px;
+}
+
+/* profile summary */
+.pstrip { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 24px; }
+.ppill {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 20px; background: var(--bg2); border: 1px solid var(--bdr);
+  color: var(--t3);
+}
+.ppill b { color: var(--white); font-weight: 500; }
+
+/* form */
+.wlform { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-bottom: 12px; }
+.wlfield { display: flex; flex-direction: column; gap: 5px; }
+.wllabel {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--t3); padding-left: 2px;
+}
+.wlinput {
+  width: 100%; padding: 14px 16px;
+  background: var(--bg2); border: 1px solid var(--bdr); border-radius: var(--r);
+  font-family: var(--font); font-size: 14px; font-weight: 500; color: var(--white);
+  outline: none; transition: border-color .2s, box-shadow .2s;
+}
+.wlinput::placeholder { color: var(--t3); font-weight: 400; }
+.wlinput:focus { border-color: rgba(149,255,71,.36); box-shadow: 0 0 0 3px rgba(149,255,71,.06); }
+.wlinput.err { border-color: rgba(255,77,77,.4); }
+.wlhint { font-family: var(--mono); font-size: 9px; color: var(--t3); padding-left: 2px; letter-spacing: .04em; }
+
+.wlerr {
+  width: 100%; font-family: var(--mono); font-size: 10px; color: var(--danger);
+  text-align: center; padding: 9px 14px; letter-spacing: .03em;
+  background: rgba(255,77,77,.06); border: 1px solid rgba(255,77,77,.14);
+  border-radius: 8px; display: none; margin-bottom: 2px;
+}
+.wlerr.on { display: block; }
+
+.wlbtn {
+  width: 100%; height: 52px;
+  background: linear-gradient(135deg, var(--green) 0%, var(--cyan) 100%);
+  border: none; border-radius: var(--r);
+  font-family: var(--font); font-size: 15px; font-weight: 700; color: #000;
+  cursor: pointer; transition: all .22s; letter-spacing: -.01em;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.wlbtn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(149,255,71,.22); }
+.wlbtn:disabled { opacity: .4; cursor: default; transform: none; box-shadow: none; }
+.spsm {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(0,0,0,.2); border-top-color: #000;
+  animation: spin .8s linear infinite; display: none; flex-shrink: 0;
+}
+.wlbtn.ld .spsm { display: block; }
+.wlbtn.ld .btxt { display: none; }
+
+.wlpriv {
+  text-align: center; font-family: var(--mono); font-size: 9px;
+  color: var(--t3); letter-spacing: .04em; margin-top: 10px;
+}
+
+/* ── CONFIRM ── */
+#vc {
+  flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 80px 20px 60px;
+  position: relative; z-index: 1; width: 100%;
+}
+.cwrap {
+  width: 100%; max-width: 380px;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  animation: fadeUp .45s ease both;
+}
+.cmark {
+  width: 72px; height: 72px; border-radius: 50%;
+  border: 1px solid rgba(149,255,71,.22);
+  background: rgba(149,255,71,.05);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 24px; animation: glowPulse 3s ease-in-out infinite;
+}
+.ctitle {
+  font-size: clamp(24px,5vw,34px); font-weight: 800;
+  letter-spacing: -.03em; line-height: 1.1; margin-bottom: 10px;
+}
+.ctitle em { font-style: normal; color: var(--green); }
+.csub {
+  font-family: var(--mono); font-size: 10px; color: var(--t3);
+  line-height: 1.6; letter-spacing: .03em; margin-bottom: 24px; max-width: 300px;
+}
+.ccard {
+  width: 100%; background: var(--bg2); border: 1px solid var(--bdr);
+  border-radius: var(--r); padding: 16px 20px; margin-bottom: 18px; text-align: left;
+}
+.ccardlbl {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--t3); margin-bottom: 12px;
+}
+.crow {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--bdr);
+}
+.crow:last-child { border-bottom: none; }
+.ck { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: .04em; }
+.cv { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--white); max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv.g { color: var(--green); }
+
+.ctweet {
+  width: 100%; height: 46px;
+  background: #000; border: 1px solid rgba(255,255,255,.12); border-radius: var(--r);
+  font-family: var(--font); font-size: 13px; font-weight: 600; color: #fff;
+  cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px;
+}
+.ctweet:hover { background: #111; box-shadow: 0 0 20px rgba(255,255,255,.05); }
+.cnote { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: .04em; }
+.cnote em { font-style: normal; color: var(--green); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp  { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+@keyframes blink   { 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes spin    { to{transform:rotate(360deg)} }
+@keyframes glowPulse {
+  0%,100%{box-shadow:0 0 0 8px rgba(149,255,71,.03),0 0 24px rgba(149,255,71,.1)}
+  50%    {box-shadow:0 0 0 14px rgba(149,255,71,.05),0 0 40px rgba(149,255,71,.2)}
+}
+@media(max-width:480px){
+  .opt{padding:10px 13px;}
+  .wl-h,.ctitle{font-size:26px;}
+}
+/* ── PREVIEW CARD ── */
+.prev-wrap { width:100%; max-width:460px; display:flex; flex-direction:column; align-items:center; }
+
+.prev-eyebrow {
+  font-family:var(--mono); font-size:9px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--t3); text-align:center; margin-bottom:12px;
+}
+.prev-title {
+  font-size:clamp(22px,4.5vw,30px); font-weight:800; letter-spacing:-.03em;
+  line-height:1.15; text-align:center; margin-bottom:6px;
+}
+.prev-title em { font-style:normal; color:var(--green); }
+.prev-sub {
+  font-family:var(--mono); font-size:10px; color:var(--t3); letter-spacing:.03em;
+  text-align:center; line-height:1.6; margin-bottom:20px;
+}
+
+/* strategy card */
+.strat-card {
+  width:100%; border-radius:var(--r);
+  background:var(--bg2); border:1px solid rgba(149,255,71,.2);
+  box-shadow:0 0 0 1px rgba(149,255,71,.06) inset, 0 0 32px rgba(149,255,71,.06);
+  margin-bottom:10px; overflow:hidden;
+  position:relative;
+}
+.strat-card::before {
+  content:''; position:absolute; left:10%; right:10%; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(149,255,71,.3),transparent);
+}
+.strat-card-head {
+  padding:14px 18px 12px;
+  border-bottom:1px solid var(--bdr);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+}
+.strat-label {
+  font-family:var(--mono); font-size:9px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--green); opacity:.7;
+}
+.strat-badge {
+  font-family:var(--mono); font-size:9px; letter-spacing:.08em;
+  padding:3px 9px; border-radius:20px;
+  background:rgba(149,255,71,.08); border:1px solid rgba(149,255,71,.2);
+  color:var(--green); white-space:nowrap;
+}
+.strat-body { padding:14px 18px; }
+.strat-name {
+  font-size:16px; font-weight:700; letter-spacing:-.01em;
+  color:var(--white); margin-bottom:3px;
+}
+.strat-desc {
+  font-family:var(--mono); font-size:10px; color:var(--t3);
+  letter-spacing:.03em; line-height:1.5; margin-bottom:12px;
+}
+.strat-apy {
+  font-family:var(--mono); font-size:22px; font-weight:500;
+  color:var(--green); letter-spacing:-.02em;
+}
+.strat-apy-lbl {
+  font-family:var(--mono); font-size:9px; color:var(--t3);
+  letter-spacing:.06em; text-transform:uppercase; margin-left:6px;
+}
+
+/* insight blocks */
+.insight-block {
+  width:100%; border-radius:var(--r);
+  background:var(--bg2); border:1px solid var(--bdr);
+  padding:14px 18px; margin-bottom:8px;
+}
+.insight-block.tradeoff { background:rgba(255,255,255,.02); }
+.insight-block.avoid    { background:rgba(255,77,77,.03); border-color:rgba(255,77,77,.1); }
+.ib-label {
+  font-family:var(--mono); font-size:9px; letter-spacing:.14em;
+  text-transform:uppercase; margin-bottom:10px;
+}
+.ib-label.green { color:rgba(149,255,71,.5); }
+.ib-label.muted { color:var(--t3); }
+.ib-label.red   { color:rgba(255,77,77,.45); }
+.ib-row {
+  display:flex; align-items:flex-start; gap:8px;
+  padding:3px 0; font-family:var(--mono); font-size:10px;
+  color:var(--t3); letter-spacing:.02em; line-height:1.5;
+}
+.ib-dot { flex-shrink:0; margin-top:1px; }
+.ib-dot.g  { color:var(--green); opacity:.6; }
+.ib-dot.m  { color:var(--t3); }
+.ib-dot.r  { color:rgba(255,77,77,.5); }
+
+.alt-strip {
+  width:100%; border-radius:var(--r);
+  background:var(--bg2); border:1px solid var(--bdr);
+  padding:12px 18px; margin-bottom:16px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+}
+.alt-left { display:flex; flex-direction:column; gap:3px; }
+.alt-lbl { font-family:var(--mono); font-size:9px; color:var(--t3); letter-spacing:.1em; text-transform:uppercase; }
+.alt-val { font-family:var(--mono); font-size:12px; color:var(--white); }
+.alt-badge {
+  font-family:var(--mono); font-size:9px; padding:3px 10px; border-radius:20px;
+  background:rgba(255,255,255,.04); border:1px solid var(--bdr);
+  color:var(--t3); white-space:nowrap; flex-shrink:0;
+}
+
+/* divider */
+.unlock-divider {
+  width:100%; display:flex; align-items:center; gap:12px; margin:4px 0 14px;
+}
+.unlock-divider-line { flex:1; height:1px; background:var(--bdr); }
+.unlock-divider-txt {
+  font-family:var(--mono); font-size:9px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--t3); white-space:nowrap;
+}
+
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="brand" href="#">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="185 88 168 248" width="26" height="38" style="overflow:visible;flex-shrink:0;">
+      <defs>
+        <linearGradient id="ng1" x1="0" y1="1" x2="1" y2="0" gradientUnits="objectBoundingBox">
+          <stop offset="0%" stop-color="#95ff47"/><stop offset="100%" stop-color="#35e6ff"/>
+        </linearGradient>
+        <linearGradient id="ng2" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+          <stop offset="0%" stop-color="#95ff47" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="#95ff47" stop-opacity="0.95"/>
+        </linearGradient>
+        <filter id="nf" x="-25%" y="-25%" width="150%" height="150%">
+          <feGaussianBlur stdDeviation="2.2" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <path d="M 200,215 C 237,200 275,202 338,199" fill="none" stroke="#35e6ff" stroke-width="6" stroke-linecap="round" stroke-opacity="0.5"/>
+      <path d="M 200,325 L 200,215" fill="none" stroke="url(#ng2)" stroke-width="9.2" stroke-linecap="round" filter="url(#nf)"/>
+      <path d="M 200,215 C 236,209 283,149 335,100" fill="none" stroke="url(#ng1)" stroke-width="10.2" stroke-linecap="round" filter="url(#nf)"/>
+      <circle cx="200" cy="215" r="5.5" fill="url(#ng1)"/>
+      <circle cx="200" cy="215" r="2.2" fill="#ffffff" fill-opacity="0.96"/>
+    </svg>
+    <span class="brand-wm">YieldMap</span>
+  </a>
+  <div class="nav-pill">Closed Beta · Early Access</div>
+</nav>
+
+<div class="pbar"><div class="pbar-fill" id="pb"></div></div>
+
+<!-- ── QUIZ ── -->
+<div class="view on" id="vq">
+  <div class="qwrap">
+    <div style="text-align:center;margin-bottom:28px;padding-top:8px;">
+  <div style="font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--t3);margin-bottom:12px;">Strategy profile</div>
+  <h1 style="font-family:var(--font);font-size:clamp(22px,4.5vw,32px);font-weight:800;letter-spacing:-.03em;line-height:1.15;margin-bottom:10px;">
+    Find your DeFi profile.<br><span style="color:var(--green);">Not just the highest APY.</span>
+  </h1>
+  <p style="font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:.03em;line-height:1.7;max-width:340px;margin:0 auto;">
+    Answer 5 questions. Discover how you should deploy on Solana.<br>
+    Join the closed beta to get matched with strategies that fit your risk.
+  </p>
+</div>
+<div class="step-num" id="snlbl"><b>1</b> of 5</div>
+
+    <!-- Q1: Experience -->
+    <div class="qblock on" id="q1">
+      <div class="qtitle">DeFi <em>experience</em></div>
+      <div class="qsub">Helps us match the right strategy complexity</div>
+      <div class="opts" id="o1">
+        <div class="opt" data-q="1" data-v="0" onclick="pick(this)"><span class="oi">🌱</span><div class="ob"><div class="ol">New to DeFi</div></div></div>
+        <div class="opt" data-q="1" data-v="1" onclick="pick(this)"><span class="oi">🧭</span><div class="ob"><div class="ol">Know the basics</div></div></div>
+        <div class="opt" data-q="1" data-v="2" onclick="pick(this)"><span class="oi">🔧</span><div class="ob"><div class="ol">Used a few strategies</div></div></div>
+        <div class="opt" data-q="1" data-v="3" onclick="pick(this)"><span class="oi">⚙️</span><div class="ob"><div class="ol">Active across protocols</div></div></div>
+      </div>
+    </div>
+
+    <!-- Q2: Risk (slider) -->
+    <div class="qblock" id="q2">
+      <div class="qtitle">Risk <em>tolerance</em></div>
+      <div class="qsub">Defines how stable your yield should be</div>
+      <div class="sldr-wrap">
+        <div class="sldr-lbl"><span>Safety first</span><span>Max yield</span></div>
+        <div class="sldr-cur" id="sv2">Balanced</div>
+        <input type="range" id="sl2" min="0" max="3" step="1" value="1" oninput="sldr(this,2)">
+      </div>
+    </div>
+
+    <!-- Q3: Return -->
+    <div class="qblock" id="q3">
+      <div class="qtitle">Return <em>expectation</em></div>
+      <div class="qsub">What kind of return are you aiming for?</div>
+      <div class="opts" id="o3">
+        <div class="opt" data-q="3" data-v="0" onclick="pick(this)"><span class="oi">💧</span><div class="ob"><div class="ol">Stable &amp; low</div><div class="oh">4–7%, predictable</div></div></div>
+        <div class="opt" data-q="3" data-v="1" onclick="pick(this)"><span class="oi">🌱</span><div class="ob"><div class="ol">Balanced</div><div class="oh">8–15%, manageable risk</div></div></div>
+        <div class="opt" data-q="3" data-v="2" onclick="pick(this)"><span class="oi">🔥</span><div class="ob"><div class="ol">High yield</div><div class="oh">15%+, accept volatility</div></div></div>
+      </div>
+    </div>
+
+    <!-- Q4: Effort -->
+    <div class="qblock" id="q4">
+      <div class="qtitle">Time to <em>manage</em></div>
+      <div class="qsub">How actively do you want to manage your capital?</div>
+      <div class="opts col" id="o4">
+        <div class="opt" data-q="4" data-v="0" onclick="pick(this)"><span class="oi">😴</span><div class="ob"><div class="ol">Set and forget</div><div class="oh">Never touch after deploying</div></div></div>
+        <div class="opt" data-q="4" data-v="1" onclick="pick(this)"><span class="oi">📅</span><div class="ob"><div class="ol">Weekly check-in</div><div class="oh">A few minutes a week</div></div></div>
+        <div class="opt" data-q="4" data-v="2" onclick="pick(this)"><span class="oi">🎯</span><div class="ob"><div class="ol">Active daily</div><div class="oh">Optimize constantly</div></div></div>
+      </div>
+    </div>
+
+    <!-- Q5: Horizon -->
+    <div class="qblock" id="q5">
+      <div class="qtitle">Investment <em>horizon</em></div>
+      <div class="qsub">How long do you want to stay in a strategy?</div>
+      <div class="opts" id="o5">
+        <div class="opt" data-q="5" data-v="0" onclick="pick(this)"><span class="oi">🔒</span><div class="ob"><div class="ol">Long-term</div><div class="oh">Months to years</div></div></div>
+        <div class="opt" data-q="5" data-v="1" onclick="pick(this)"><span class="oi">🔄</span><div class="ob"><div class="ol">Flexible</div><div class="oh">Move when better appears</div></div></div>
+        <div class="opt" data-q="5" data-v="2" onclick="pick(this)"><span class="oi">⚡</span><div class="ob"><div class="ol">Short-term</div><div class="oh">Actively rotating</div></div></div>
+      </div>
+    </div>
+
+    <div class="qnav">
+      <button class="qback hide" id="qb" onclick="back()">← Back</button>
+      <button class="qnext" id="qn" onclick="next()" disabled>Continue →</button>
+    </div>
+
+    <div class="dots" id="dots"></div>
+  </div>
+</div>
+
+<!-- ── PREVIEW + WAITLIST ── -->
+<div class="view" id="vw">
+  <div class="prev-wrap">
+
+    <!-- persona chip -->
+    <div class="persona-chip" style="margin-bottom:14px;"><div class="pdot"></div><span id="pname">Yield Hunter</span></div>
+
+    <h1 class="prev-title" style="margin-bottom:16px;">This is how you should <em>deploy today</em></h1>
+
+    <!-- strategy card -->
+    <div class="strat-card" id="strat-card" style="margin-bottom:8px;">
+      <div class="strat-card-head">
+        <span class="strat-label">Primary strategy</span>
+        <span class="strat-badge" id="strat-badge">Best fit</span>
+      </div>
+      <div class="strat-body">
+        <div class="strat-name" id="strat-name">Stable USDC Yield</div>
+        <div class="strat-desc" id="strat-desc">Earn with low variability · Focus: consistency over spikes</div>
+        <span class="strat-apy" id="strat-apy">~5.2%</span>
+        <span class="strat-apy-lbl">estimated range</span>
+      </div>
+    </div>
+
+    <!-- why — single sentence -->
+    <div style="width:100%;padding:10px 16px;margin-bottom:14px;border-radius:var(--r);background:rgba(149,255,71,.04);border:1px solid rgba(149,255,71,.12);">
+      <p id="why-sentence" style="font-family:var(--mono);font-size:10px;color:rgba(149,255,71,.65);letter-spacing:.03em;line-height:1.6;margin:0;"></p>
+    </div>
+
+    <!-- divider -->
+    <div style="width:100%;display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <div style="flex:1;height:1px;background:var(--bdr);"></div>
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);white-space:nowrap;">Join the closed beta</div>
+      <div style="flex:1;height:1px;background:var(--bdr);"></div>
+    </div>
+
+    <div class="wlform">
+      <div class="wlfield">
+        <div class="wllabel">Twitter / X handle</div>
+        <input class="wlinput" id="wt" type="text" placeholder="@yourhandle"
+          autocomplete="off" autocorrect="off" autocapitalize="off" oninput="ce()">
+      </div>
+      <div class="wlfield">
+        <div class="wllabel">Solana wallet <span style="opacity:.45;font-size:8px;letter-spacing:0">optional</span></div>
+        <input class="wlinput" id="ww" type="text" placeholder="Your Solana address"
+          autocomplete="off" autocorrect="off" autocapitalize="off">
+      </div>
+    </div>
+
+    <div class="wlerr" id="werr">Please enter your Twitter handle to continue.</div>
+
+    <button class="wlbtn" id="wbtn" onclick="submit()">
+      <div class="spsm"></div>
+      <span class="btxt">Unlock full strategy →</span>
+    </button>
+    <div class="wlpriv" style="margin-top:8px;">No spam. One DM when your spot opens.</div>
+
+  </div>
+</div>
+
+<!-- ── CONFIRM ── -->
+<div class="view" id="vc">
+  <div class="cwrap">
+    <div class="cmark">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="38" height="38">
+        <defs>
+          <linearGradient id="cg1" x1="0" y1="1" x2="1" y2="0" gradientUnits="objectBoundingBox">
+            <stop offset="0%" stop-color="#95ff47"/><stop offset="100%" stop-color="#35e6ff"/>
+          </linearGradient>
+          <linearGradient id="cg2" x1="0" y1="1" x2="0" y2="0" gradientUnits="objectBoundingBox">
+            <stop offset="0%" stop-color="#95ff47" stop-opacity="0.28"/>
+            <stop offset="100%" stop-color="#95ff47" stop-opacity="0.95"/>
+          </linearGradient>
+        </defs>
+        <path d="M 48,52 C 54,49 64,48 78,47" fill="none" stroke="#35e6ff" stroke-width="2.6" stroke-linecap="round" stroke-opacity="0.5"/>
+        <path d="M 48,72 L 48,52" fill="none" stroke="url(#cg2)" stroke-width="3.8" stroke-linecap="round"/>
+        <path d="M 48,52 C 55,50 68,34 82,24" fill="none" stroke="url(#cg1)" stroke-width="4.4" stroke-linecap="round"/>
+        <circle cx="48" cy="52" r="3" fill="url(#cg1)"/>
+      </svg>
+    </div>
+    <h2 class="ctitle">You're on the <em>list</em></h2>
+    <p class="csub" id="csub">We'll review your profile and unlock access in waves.<br>You'll get a DM when your strategies are ready.</p>
+
+    <div class="ccard">
+      <div class="ccardlbl">Your profile</div>
+      <div class="crow"><span class="ck">Persona</span><span class="cv g" id="cpersona">—</span></div>
+      <div class="crow"><span class="ck">Twitter</span><span class="cv" id="ctwitter">—</span></div>
+      <div class="crow" id="cwrow" style="display:none"><span class="ck">Wallet</span><span class="cv" id="cwallet">—</span></div>
+    </div>
+
+    <div style="
+  width:100%;background:var(--bg2);border:1px solid var(--bdr);
+  border-radius:var(--r);padding:14px 18px;margin-bottom:16px;text-align:left;">
+  <div style="font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:12px;">What happens next</div>
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:20px;height:20px;border-radius:50%;background:rgba(149,255,71,.1);border:1px solid rgba(149,255,71,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <span style="font-family:var(--mono);font-size:9px;color:var(--green);">1</span>
+      </div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:.02em;">Profile saved</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:20px;height:20px;border-radius:50%;background:rgba(149,255,71,.06);border:1px solid rgba(149,255,71,.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <span style="font-family:var(--mono);font-size:9px;color:var(--green);opacity:.6;">2</span>
+      </div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:.02em;">Strategy matching in progress</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:20px;height:20px;border-radius:50%;background:rgba(149,255,71,.03);border:1px solid rgba(149,255,71,.08);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <span style="font-family:var(--mono);font-size:9px;color:var(--green);opacity:.35;">3</span>
+      </div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:.02em;">Access unlocks in waves — DM incoming</span>
+    </div>
+  </div>
+</div>
+<button class="ctweet" onclick="tweet()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      Share your profile on X
+    </button>
+    <div class="cnote">Tag <em>@yieldmap_app</em> for a retweet 🙌</div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──
+var SB_URL = 'https://zdloxhdvhxucpgpnotzw.supabase.co';
+var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkbG94aGR2aHh1Y3BncG5vdHp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMjYwODcsImV4cCI6MjA4OTYwMjA4N30.X4aa6qiu6XXRzDZ-qUDXh6x-F2MtfGSj5w4gwXHft2c';
+var _db = null;
+function db(){ if(!_db) _db = supabase.createClient(SB_URL, SB_KEY); return _db; }
+
+// ── STATE ──
+var TOTAL = 5;
+var ans = {1:null, 2:1, 3:null, 4:null, 5:null};
+var cur = 1;
+var persona = null;
+
+var RISK_LBLS  = ['Safety first','Balanced','Moderate risk','Maximum yield'];
+var PERSONA_NAMES = {p1:'Passive Saver',p2:'Balanced Investor',p3:'Yield Hunter',p4:'Aggressive Optimizer'};
+
+// ── STRATEGY TEMPLATES ──
+var STRATEGY_TEMPLATES = {
+  p1: {
+    badge: 'Safe Harbor',
+    name:  'Stable USDC Lending',
+    desc:  'Organic yield · Instant exit · No active management needed',
+    apy:   '~4–6%',
+    why:   'Capital safety first — organic yield, instant exit, nothing to manage.',
+  },
+  p2: {
+    badge: 'Best fit',
+    name:  'Optimized USDC Lending',
+    desc:  'Organic-led yield with emission boost · Weekly check-in sufficient',
+    apy:   '~5–8%',
+    why:   'Reliable organic base with emission upside — solid returns without daily attention.',
+  },
+  p3: {
+    badge: 'Active',
+    name:  'Active Lending + Rate Optimization',
+    desc:  'Switch protocols when rates shift · Emission rewards add upside',
+    apy:   '~7–12%',
+    why:   'Your monitoring preference lets you capture rate shifts others miss.',
+  },
+  p4: {
+    badge: 'Optimizer',
+    name:  'Lending + Multiply (Looped)',
+    desc:  'Leveraged staking spread · Multi-protocol · Daily optimization',
+    apy:   '~12–20%',
+    why:   'Leverage amplifies the staking-to-lending spread — daily management extracts what others leave behind.',
+  },
+};
+var PROFILE_LBLS = {
+  risk:  ['Low risk','Balanced','Moderate risk','High risk'],
+  yield: ['Stable yield','Balanced return','High yield'],
+  eff:   ['Set & forget','Weekly','Active daily'],
+  hz:    ['Long-term','Flexible','Short-term'],
+};
+
+// ── DOTS INIT ──
+(function(){
+  var d=document.getElementById('dots');
+  for(var i=1;i<=TOTAL;i++){var e=document.createElement('div');e.className='dot';e.id='d'+i;d.appendChild(e);}
+})();
+
+function ui(){
+  document.getElementById('pb').style.width=(((cur-1)/TOTAL)*100)+'%';
+  document.getElementById('snlbl').innerHTML='<b>'+cur+'</b> of '+TOTAL;
+  for(var i=1;i<=TOTAL;i++) document.getElementById('d'+i).className='dot'+(i<cur?' done':i===cur?' cur':'');
+  document.getElementById('qb').classList.toggle('hide', cur===1);
+  var nb=document.getElementById('qn');
+  nb.disabled = cur===2 ? false : ans[cur]===null;
+}
+
+function pick(el){
+  var q=+el.dataset.q, v=+el.dataset.v;
+  document.querySelectorAll('#o'+q+' .opt').forEach(function(o){o.classList.remove('sel');});
+  el.classList.add('sel');
+  ans[q]=v;
+  ui();
+  setTimeout(function(){ next(); }, 260);
+}
+
+function sldr(el,q){
+  var v=+el.value; ans[q]=v;
+  document.getElementById('sv'+q).textContent=RISK_LBLS[v];
+  el.style.setProperty('--p',(v/3*100)+'%');
+  ui();
+}
+// init slider
+document.getElementById('sl2').style.setProperty('--p','33%');
+
+function next(){
+  if(cur!==2 && ans[cur]===null) return;
+  document.getElementById('q'+cur).classList.remove('on');
+  cur++;
+  if(cur>TOTAL){ showWaitlist(); return; }
+  document.getElementById('q'+cur).classList.add('on');
+  ui();
+}
+
+function back(){
+  if(cur<=1) return;
+  document.getElementById('q'+cur).classList.remove('on');
+  cur--;
+  document.getElementById('q'+cur).classList.add('on');
+  ui();
+}
+
+ui();
+
+// ── PERSONA ──
+function calcPersona(){
+  var score=(ans[2]||0)*2+(ans[3]||0)*2+(ans[4]||0)+(ans[1]||0);
+  if(score<=3) return 'p1';
+  if(score<=7) return 'p2';
+  if(score<=12) return 'p3';
+  return 'p4';
+}
+
+// ── WAITLIST VIEW ──
+function showWaitlist(){
+  persona=calcPersona();
+  var t=STRATEGY_TEMPLATES[persona];
+  document.getElementById('pb').style.width='100%';
+  document.getElementById('vq').classList.remove('on');
+  document.getElementById('vw').classList.add('on');
+  document.getElementById('pname').textContent=PERSONA_NAMES[persona];
+
+  // populate strategy card
+  document.getElementById('strat-badge').textContent=t.badge;
+  document.getElementById('strat-name').textContent=t.name;
+  document.getElementById('strat-desc').textContent=t.desc;
+  document.getElementById('strat-apy').textContent=t.apy;
+
+  document.getElementById('why-sentence').textContent=t.why;
+
+
+
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── SUBMIT ──
+function ce(){
+  document.getElementById('werr').classList.remove('on');
+  document.getElementById('wt').classList.remove('err');
+}
+
+function submit(){
+  var t=document.getElementById('wt').value.trim();
+  var w=document.getElementById('ww').value.trim();
+  var err=document.getElementById('werr');
+  var btn=document.getElementById('wbtn');
+  ce();
+  if(!t){ err.classList.add('on'); document.getElementById('wt').classList.add('err'); document.getElementById('wt').focus(); return; }
+  // normalize
+  t=t.replace(/^https?:\/\/(www\.)?(twitter|x)\.com\//,'').split('/')[0].split('?')[0];
+  if(t[0]!=='@') t='@'+t;
+  btn.classList.add('ld'); btn.disabled=true;
+  db().from('waitlist').insert({
+    twitter_handle:t, wallet_address:w||null, persona:persona,
+    ra:ans[2]||0, ya:ans[3]||0, mt:ans[4]||0, hz:ans[5]||0,
+    experience:ans[1]||0, referrer:document.referrer||null
+  }).then(function(r){
+    btn.classList.remove('ld'); btn.disabled=false;
+    if(r.error && r.error.code!=='23505'){
+      err.textContent='Something went wrong. Please try again.';
+      err.classList.add('on');
+      return;
+    }
+    showConfirm(t,w);
+  }).catch(function(){
+    btn.classList.remove('ld'); btn.disabled=false;
+    err.textContent='Network error. Please try again.'; err.classList.add('on');
+  });
+}
+
+// ── CONFIRM ──
+function showConfirm(t,w){
+  document.getElementById('vw').classList.remove('on');
+  document.getElementById('vc').classList.add('on');
+  document.getElementById('cpersona').textContent=PERSONA_NAMES[persona]||'—';
+  document.getElementById('ctwitter').textContent=t;
+  document.getElementById('csub').textContent="We'll DM "+t+" when your spot is ready.";
+  if(w){ document.getElementById('cwallet').textContent=w.slice(0,8)+'...'+w.slice(-4); document.getElementById('cwrow').style.display='flex'; }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── TWEET ──
+function tweet(){
+  var n=PERSONA_NAMES[persona]||'DeFi investor';
+  window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent('I\'m a '+n+' on @yieldmap_app 🎯\n\nSolana DeFi strategies matched to your risk profile — closed beta opening soon.\n\nyieldmap.app'),'_blank','noopener');
+}
+</script>
+</body>
+</html>
