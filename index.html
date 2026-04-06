@@ -2229,7 +2229,7 @@ function getSlug(s) {
 // ══════════════════════════════════════════════════════
 const CARD_MAP = {
   'Best':            { theme:'theme-best',        glow:'#95ff47', badgeLabel:'BEST',           actionFn:s=>s.decision_action||`Deploy ${s.asset} here.`,                                    ctaFn:s=>`→ Start via ${s.protocol}`, reasonFallback:'Most balanced option in this group right now.' },
-  'Safe Harbor':     { theme:'theme-safe',        glow:'#35e6ff', badgeLabel:'SAFE HARBOR',    actionFn:s=>s.decision_action||`Park ${s.asset} — predictable, low-effort yield`,            ctaFn:_=>'→ Park capital',            reasonFallback:'Maximum stability. Designed for idle capital parking.' },
+  'Safe Harbor':     { theme:'theme-safe',        glow:'#35e6ff', badgeLabel:'SAFE HARBOR',    actionFn:s=>s.decision_action||`Park ${s.asset} — predictable, low-effort yield`,            ctaFn:s=>`→ Start via ${s.protocol}`,            reasonFallback:'Maximum stability. Designed for idle capital parking.' },
   'Alternative':     { theme:'theme-alternative', glow:'#4dd9ac', badgeLabel:'ALTERNATIVE',   actionFn:s=>s.decision_action||'Strong alternative in this group',                            ctaFn:s=>`→ Start via ${s.protocol}`, reasonFallback:'' },
   'Opportunity':     { theme:'theme-opportunity', glow:'#ff9a22', badgeLabel:'OPPORTUNITY',   actionFn:s=>s.decision_action||'Higher yield — active monitoring required.',                  ctaFn:s=>`→ Open on ${s.protocol}`,   reasonFallback:'Higher yield — active monitoring required.' },
   'Other':           { theme:'theme-explore',     glow:'#8899aa', badgeLabel:'WORTH WATCHING', actionFn:s=>s.decision_action||'Worth watching — not a top pick right now',                  ctaFn:_=>'→ View pool',               reasonFallback:'Not strong enough vs current top picks — but still worth tracking.' },
@@ -4352,7 +4352,7 @@ const DUMMY_ALERTS = [
 const DUMMY_VAULTS = [
   // BEST
   {
-    slug: 'alpha-lend-sol', name: 'Alpha Lend SOL', protocol: 'Solend', asset: 'SOL',
+    slug: 'alpha-lend-sol', name: 'Alpha Lend SOL', protocol: 'Jupiter', asset: 'SOL',
     decision_label: 'Best', decision_score: 87, decision_action: 'Deposit here — deep liquidity and a remarkably stable rate make this the SOL lender of choice.',
     decision_reason: 'Large pool with one of the tightest yield bands in its class. What you see today is very close to what you will earn tomorrow.',
     decision_pills: JSON.stringify(['Stable']),
@@ -4384,7 +4384,7 @@ const DUMMY_VAULTS = [
   },
   // ALTERNATIVE
   {
-    slug: 'vertex-usdc-deep', name: 'Vertex USDC Deep', protocol: 'MarginFi', asset: 'USDC',
+    slug: 'vertex-usdc-deep', name: 'Vertex USDC Deep', protocol: 'Jupiter', asset: 'USDC',
     decision_label: 'Alternative', decision_score: 75, decision_action: 'Solid USDC alternative — unmatched liquidity at the cost of yield ceiling.',
     decision_reason: 'Enormous TVL means this pool almost never moves against you. Exit at any size, any time. Lower return, near-zero execution risk.',
     decision_pills: JSON.stringify(['Stable', 'Deep pool']),
@@ -4400,7 +4400,7 @@ const DUMMY_VAULTS = [
     audit_count: 4, bug_bounty_usd: 400000, audit_firm: 'OtterSec', had_exploit: false
   },
   {
-    slug: 'aurora-usds-prime', name: 'Aurora USDS Prime', protocol: 'Solend', asset: 'USDS',
+    slug: 'aurora-usds-prime', name: 'Aurora USDS Prime', protocol: 'Kamino', asset: 'USDS',
     decision_label: 'Alternative', decision_score: 77, decision_action: 'Highest-yield USDS option in this tier — stable, but pool depth warrants careful sizing.',
     decision_reason: 'Noticeably higher yield than peers with the same Stable label. The gap is real — so is the pool size difference. Works well for allocations that do not need deep exit liquidity.',
     decision_pills: JSON.stringify(['Stable']),
@@ -4416,7 +4416,7 @@ const DUMMY_VAULTS = [
   },
   // SAFE HARBOR
   {
-    slug: 'meridian-usx-core', name: 'Meridian USX Core', protocol: 'Drift', asset: 'USX',
+    slug: 'meridian-usx-core', name: 'Meridian USX Core', protocol: 'Jupiter', asset: 'USX',
     decision_label: 'Safe Harbor', decision_score: 79, decision_action: 'Park USX here — stable, predictable, low-effort yield.',
     decision_reason: 'Confirmed stable for 24h+. Tight yield band means what you see is close to what you earn. No active monitoring needed.',
     decision_pills: JSON.stringify(['Stable']),
@@ -4432,7 +4432,7 @@ const DUMMY_VAULTS = [
   },
   // OPPORTUNITY
   {
-    slug: 'vertex-usdc-onre', name: 'Vertex USDC OnRe', protocol: 'Marginfi', asset: 'USDC',
+    slug: 'vertex-usdc-onre', name: 'Vertex USDC OnRe', protocol: 'Jupiter', asset: 'USDC',
     decision_label: 'Opportunity', decision_score: 66, decision_action: 'Watch — higher USDC yield than the group leader, but signal is not confirmed yet.',
     decision_reason: 'Offers meaningfully more yield than the top USDC pick. Stable rate, reasonable pool. The score gap is driven by data confidence, not yield or stability failures. Worth tracking closely.',
     decision_pills: JSON.stringify(['Stable']),
@@ -4448,7 +4448,7 @@ const DUMMY_VAULTS = [
   },
   // WORTH WATCHING (Other)
   {
-    slug: 'aurora-sol-balanced', name: 'Aurora SOL Balanced', protocol: 'Drift', asset: 'SOL',
+    slug: 'aurora-sol-balanced', name: 'Aurora SOL Balanced', protocol: 'Kamino', asset: 'SOL',
     decision_label: 'Other', decision_score: 68, decision_action: 'Closest SOL alternative to the leader — not there yet, but worth watching.',
     decision_reason: 'Largest TVL among the SOL Other vaults. Shifting conditions still undercut the entry case. If it stabilizes, this is the next SOL vault to act on.',
     decision_pills: JSON.stringify(['Shifting']),
@@ -4479,7 +4479,7 @@ const DUMMY_VAULTS = [
   },
   // NOT RECOMMENDED
   {
-    slug: 'nexus-pyusd-vault', name: 'Nexus PYUSD Vault', protocol: 'Solend', asset: 'PYUSD',
+    slug: 'nexus-pyusd-vault', name: 'Nexus PYUSD Vault', protocol: 'Kamino', asset: 'PYUSD',
     decision_label: 'Not Recommended', decision_score: 52, decision_action: 'Do not deposit — PYUSD yield has deteriorated sharply and this is now an active alert.',
     decision_reason: 'Pool size is significant, but size does not protect against rate collapse. Alert-level stability means the APY drop was sudden and significant. New entry is off the table until conditions stabilize.',
     decision_pills: JSON.stringify(['Alert']),
